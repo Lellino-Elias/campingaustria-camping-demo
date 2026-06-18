@@ -1,8 +1,31 @@
 "use client";
 
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import { useEffect } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+
+/**
+ * Leaflet misst beim Init manchmal eine Container-Höhe von 0 — auf Desktop löst
+ * das Grid die Spaltenhöhe (`lg:h-full`) erst NACH dem Map-Init auf, sodass die
+ * Kacheln nie korrekt angefordert werden (graue Karte). Auf Mobile mit fixer
+ * Höhe tritt das nicht auf. Wir vermessen daher nach dem Layout-Settle neu und
+ * bei jeder Container-Größenänderung. Reine Robustheit — kein Layout-Eingriff.
+ */
+function InvalidateSize() {
+  const map = useMap();
+  useEffect(() => {
+    const fix = () => map.invalidateSize();
+    const timers = [0, 200, 600].map((d) => setTimeout(fix, d));
+    const ro = new ResizeObserver(fix);
+    ro.observe(map.getContainer());
+    return () => {
+      timers.forEach(clearTimeout);
+      ro.disconnect();
+    };
+  }, [map]);
+  return null;
+}
 
 const pin = L.divIcon({
   className: "",
@@ -31,6 +54,7 @@ export default function MapClient({
       scrollWheelZoom={false}
       style={{ height: "100%", width: "100%", background: "#efe8da" }}
     >
+      <InvalidateSize />
       {/* Attribution ist Lizenzpflicht (OSM/CARTO) — nie abschalten. */}
       <TileLayer
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
